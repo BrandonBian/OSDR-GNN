@@ -1,3 +1,12 @@
+# My modification of OSDR-GNN for customized prediction on materials
+
+On line 18, change the global variable to indicate whether to train on materials or on teir functions.
+
+```
+material = True
+```
+
+
 # ADS-OSU-Assembly-Graph
 > Ongoing collaboration between Autodesk and Oregon State University concerning the creation of assembly-flow based knowledge graphs to infer function
 
