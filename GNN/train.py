@@ -16,6 +16,7 @@ from torch.nn import functional as F
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 
 material = True
+ITERATION = 50
 
 
 class HierarchicalClassifier(object):
@@ -256,7 +257,7 @@ class CustomizedClassifier(object):
 
             scheduler.step()  # scheduler takes one step
             end = time.time()
-            val_loss, _, _ = self.predict(val_loader)  # evaluate and obtain loss on validation set
+            val_loss, _, _ = self.predict(val_loader, weights_material)  # evaluate and obtain loss on validation set
 
             if self.verbose:
                 print(f'Epoch: {epoch + 1:03d}/{self.num_epochs}, Time: {end - start:.2f}s, '
@@ -279,7 +280,7 @@ class CustomizedClassifier(object):
         torch.save(best_state, 'checkpoint.pkl')
 
     @torch.no_grad()
-    def predict(self, data_loader):  # data_loader is the testing/validation set
+    def predict(self, data_loader, weights_material):  # data_loader is the testing/validation set
         self.model.eval()  # set to evaluation
 
         loss = 0.
@@ -296,7 +297,7 @@ class CustomizedClassifier(object):
                 material_predictions = self.model.predict(batch.x.float(), batch.edge_index, batch.e.float())
 
             is_labeled = batch.material > 0
-            loss = nn.CrossEntropyLoss()(material_predictions[is_labeled],
+            loss = nn.CrossEntropyLoss()(material_predictions[is_labeled],  # TODO: need weights or not?
                                          batch.material[is_labeled])  # compare predicted with ground truth
 
             # TODO: predictions and ground truths for materials only - done
@@ -384,7 +385,7 @@ def cross_validate(args):
 
     print("Start Training...")
 
-    for __ in tqdm(range(10), unit_scale=True, desc='Running experiments...'):
+    for __ in tqdm(range(ITERATION), unit_scale=True, desc='Running experiments...'):
 
         # Iterating multiple times:
         # This allows us to investigate the model's performance without bias towards train/test splits.
@@ -484,7 +485,7 @@ def cross_validate_material(args):
 
     print("[Customized] Start Training...")
 
-    for __ in tqdm(range(100), unit_scale=True, desc='Running experiments...'):
+    for __ in tqdm(range(ITERATION), unit_scale=True, desc='Running experiments...'):
 
         # Iterating multiple times:
         # This allows us to investigate the model's performance without bias towards train/test splits.
@@ -495,7 +496,8 @@ def cross_validate_material(args):
         classifier.train(dataset.train_loader, dataset.val_loader, dataset.weight)  # Train on train dataset
 
         print("[Customized] Start Testing...")
-        loss, material_p, material_t = classifier.predict(dataset.test_loader)  # Test on test dataset
+        weights_material = dataset.weight[4].to('cuda:0')
+        loss, material_p, material_t = classifier.predict(dataset.test_loader, weights_material)  # Test on test dataset
 
         material_p = material_p[material_t > 0].cpu().numpy()
         material_t = material_t[material_t > 0].cpu().numpy()
@@ -540,9 +542,59 @@ def cross_validate_material(args):
         json.dump({**args.__dict__, **result}, f, indent=2)
 
 
+def draw_confusion_material(args):
+    import seaborn as sn
+    import matplotlib.pyplot as plt
+    dataset = DataSet(args.batch_size, args.node_feature, args.edge_feature)
+    args.node_dim = dataset.node_dim
+    args.edge_dim = dataset.edge_dim
+    args.num_class_l1 = dataset.num_class_l1
+    args.num_class_l2 = dataset.num_class_l2
+    args.num_class_l3 = dataset.num_class_l3
+
+    yp_l1_all = []
+    yt_l1_all = []
+
+    # TODO: add num_materials argument - done
+    args.num_materials = dataset.num_materials
+
+    for __ in tqdm(range(ITERATION), unit_scale=True, desc='Running experiments...'):
+        # TODO: create a customized classifier and initialize an instance of it - done
+
+        classifier = CustomizedClassifier(args)
+        classifier.train(dataset.train_loader, dataset.val_loader, dataset.weight)  # Train on train dataset
+
+        loss, material_p, material_t = classifier.predict(dataset.test_loader)  # Test on test dataset
+
+        yp_l1_all.append(material_p[material_t > 0].cpu().numpy())
+
+        yt_l1_all.append(material_t[material_t > 0].cpu().numpy())
+
+        torch.cuda.empty_cache()
+        dataset.shuffle()
+
+    yt_l1_all = np.concatenate(yt_l1_all)
+    yp_l1_all = np.concatenate(yp_l1_all)
+
+    cf_l1 = confusion_matrix(yt_l1_all[yp_l1_all > 0], yp_l1_all[yp_l1_all > 0], normalize='true')
+
+    if not os.path.exists('logs/'):
+        os.makedirs('logs/')
+
+    plt.figure(figsize=(12, 9))
+    label = list(dataset.vocab['material_name'].keys())[1:]
+    sn.heatmap(cf_l1, annot=False, fmt='.2f', cmap='Blues', xticklabels=label, yticklabels=label)
+    plt.xticks(size='xx-large', rotation=45)
+    plt.yticks(size='xx-large', rotation=45)
+    plt.tight_layout()
+    plt.savefig(fname='logs/tier1.pdf', format='pdf')
+    plt.show()
+
+
 def draw_confusion(args):
     import seaborn as sn
     import matplotlib.pyplot as plt
+
     dataset = DataSet(args.batch_size, args.node_feature, args.edge_feature)
     args.node_dim = dataset.node_dim
     args.edge_dim = dataset.edge_dim
@@ -553,7 +605,7 @@ def draw_confusion(args):
     yp_l1_all, yp_l2_all, yp_l3_all = [], [], []
     yt_l1_all, yt_l2_all, yt_l3_all = [], [], []
 
-    for __ in tqdm(range(100), unit_scale=True, desc='Running experiments...'):
+    for __ in tqdm(range(ITERATION), unit_scale=True, desc='Running experiments...'):
         classifier = HierarchicalClassifier(args)
         classifier.train(dataset.train_loader, dataset.val_loader, dataset.weight)
         loss, yp_l1, yp_l2, yp_l3, yt_l1, yt_l2, yt_l3 = classifier.predict(dataset.test_loader)
@@ -609,29 +661,34 @@ def draw_confusion(args):
 
 
 def search(args):
+    print("Beginning Grid Search...")
     if args.network in ('mlp', 'linear'):
         for h in [64, 128, 256]:
             args.hid_dim = h
-            cross_validate(args)
-    else:
+            cross_validate_material(args)
+    else:  # Default
         grid = [[64, 128, 256], [1, 2, 3]]
         for c in product(*grid):
             args.hid_dim = c[0]
             args.num_layers = c[1]
-            cross_validate(args)
+            cross_validate_material(args)
 
 
 def get_parser():
+    # Fine-tune results:
+    # Network: SAGE; num_layers: 1; hidden_dim: 256
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', type=str, default='sage', choices=['gcn', 'gat', 'gin', 'sage', 'mlp', 'linear'])
-    parser.add_argument('--node_feature', type=str, default='all',
-                        choices=['all', 'none', 'component', 'name', 'type', 'material'])
+
+    parser.add_argument('--node_feature', type=str, default='all',  # TODO: Change to perform ablation study
+                        choices=['all', 'none', 'component', 'name', 'type', 'material', 'tier_function'])
     parser.add_argument('--edge_feature', type=str, default='all', choices=['all', 'none', 'flow', 'assembly'])
+
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--patience', type=int, default=50)
     parser.add_argument('--hid_dim', type=int, default=256)
     parser.add_argument('--num_epochs', type=int, default=1000)
-    parser.add_argument('--num_layers', type=int, default=3)
+    parser.add_argument('--num_layers', type=int, default=1)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--device', type=str, default='cuda:0')  # change to cuda:0, default is cuda:3
     parser.add_argument('--node_dim', type=int)
@@ -650,8 +707,17 @@ if __name__ == '__main__':
     if material == False:
         print("Training for [Tier Functions]")
         cross_validate(args)
+        # draw_confusion(args)
     else:
         print("Training for [Materials]")
         cross_validate_material(args)
+        # draw_confusion_material(args)
+
+        # args.device = 'cuda:0'
+        # args.verbose = True
+        # # for network in ['sage', 'gin']:
+        # for network in ['gin']:
+        #     args.network = network
+        #     search(args)
 
     print("Program finished normally.")

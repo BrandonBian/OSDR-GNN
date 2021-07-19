@@ -18,6 +18,7 @@ def get_vocab():
 
     # TODO: add material counts - done
     subfunc_counts, tier1_counts, tier2_counts, tier3_counts, material_counts = [], [], [], [], []
+    sys_name_counts = []
     vocab = {
         'component_basis': set(),
         'sys_name': set(),
@@ -45,6 +46,8 @@ def get_vocab():
             tier2_counts.append(attr['tier_2_function'])
             tier3_counts.append(attr['tier_3_function'])
 
+            sys_name_counts.append(attr['sys_name'])
+
             # TODO: update material_counts - done
             material_counts.append(attr['material_name'])
 
@@ -58,10 +61,21 @@ def get_vocab():
     for k, v in vocab.items():
         vocab[k] = {s: idx for idx, s in enumerate(sorted(v))}
 
+    # print(vocab['sys_name'])
+
     subfunc_counts = [vocab['subfunction_basis'][l] for l in subfunc_counts]
     tier1_counts = [vocab['tier_1_function'][l] for l in tier1_counts]
     tier2_counts = [vocab['tier_2_function'][l] for l in tier2_counts]
     tier3_counts = [vocab['tier_3_function'][l] for l in tier3_counts]
+
+    # Other counts (for plotting distribution histograms)
+
+    sys_name_counts = [vocab['sys_name'][l] for l in sys_name_counts]
+
+    # print(Counter(sys_name_counts))
+
+
+
 
     # TODO: update material_counts - done
     material_counts = [vocab['material_name'][l] for l in material_counts]
@@ -85,9 +99,14 @@ def get_vocab():
     for k, v in Counter(tier3_counts).items():
         tier3_w[k] = len(tier3_counts) / v
 
+
+
+
     # TODO: calculate the weights of the material - done
     for k, v in Counter(material_counts).items():
         material_w[k] = len(material_counts) / v
+
+
 
     # Dictionary of weights
     # TODO: add the weights of material to the weights dictionary - done
@@ -109,7 +128,7 @@ def degree_encoding(max_degree=100, dimension=16):
     return deg_enc
 
 
-def draw_class():
+def draw_class(): # TODO: change to draw other classes distribution as well - done
     import seaborn as sn
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -117,60 +136,87 @@ def draw_class():
 
     graphs = load_data('../data/autodesk_colab_fullv3_202010291746.csv')
     tier1_counts, tier2_counts, tier3_counts = [], [], []
+    sys_name_counts, flow_counts, component_basis = [], [], []
 
     for g in graphs:
-        for __, attr in g.nodes(data=True):
-            tier1_counts.append(attr['tier_1_function'])
-            tier2_counts.append(attr['tier_2_function'])
-            tier3_counts.append(attr['tier_3_function'])
+        for __, attr in g.nodes(data=True): # Node features
+            # tier1_counts.append(attr['tier_1_function'])
+            # tier2_counts.append(attr['tier_2_function'])
+            # tier3_counts.append(attr['tier_3_function'])
+
+            sys_name_counts.append(attr['sys_name'])
+            component_basis.append(attr['component_basis'])
+
+        for attr in g.edges(data=True): # Edge features
+            if 'input_flow' in attr[-1]:
+                flow_counts.append(attr[-1]['input_flow'])
+            if 'output_flow' in attr[-1]:
+                flow_counts.append(attr[-1]['output_flow'])
+
 
     f, l = [], []
-    for k, v in Counter(tier1_counts).most_common():
+    for k, v in Counter(sys_name_counts).most_common():
         if k:
-            f.append(v / len(tier1_counts))
+            f.append(v / len(sys_name_counts))
             l.append(k)
     d = pd.DataFrame({'Frequency': f, 'Class': l})
     plt.figure(figsize=(12, 9))
     sn.barplot(data=d, y='Class', x='Frequency', color='cyan')
     plt.xlabel('Frequency', size='xx-large')
-    plt.ylabel('Class', size='xx-large')
+    plt.ylabel('System Name', size='xx-large')
     plt.xticks(size='xx-large')
     plt.yticks(size='xx-large')
     plt.tight_layout()
-    plt.savefig(fname='logs/tier1_freq.pdf', format='pdf')
+    # plt.savefig(fname='logs/tier1_freq.pdf', format='pdf')
     plt.show()
 
     f, l = [], []
-    for k, v in Counter(tier2_counts).most_common():
+    for k, v in Counter(flow_counts).most_common():
         if k:
-            f.append(v / len(tier2_counts))
+            f.append(v / len(flow_counts))
             l.append(k)
     d = pd.DataFrame({'Frequency': f, 'Class': l})
     plt.figure(figsize=(13, 10))
     sn.barplot(data=d, y='Class', x='Frequency', color='cyan')
     plt.xlabel('Frequency', size='xx-large')
-    plt.ylabel('Class', size='xx-large')
+    plt.ylabel('Flow', size='xx-large')
     plt.xticks(size='xx-large')
     plt.yticks(size='xx-large')
     plt.tight_layout()
-    plt.savefig(fname='logs/tier2_freq.pdf', format='pdf')
+    # plt.savefig(fname='logs/tier2_freq.pdf', format='pdf')
     plt.show()
 
     f, l = [], []
-    for k, v in Counter(tier3_counts).most_common():
+    for k, v in Counter(component_basis).most_common():
         if k:
-            f.append(v / len(tier3_counts))
+            f.append(v / len(component_basis))
             l.append(k)
     d = pd.DataFrame({'Frequency': f, 'Class': l})
     plt.figure(figsize=(13, 10))
     sn.barplot(data=d, y='Class', x='Frequency', color='cyan')
     plt.xlabel('Frequency', size='xx-large')
-    plt.ylabel('Class', size='xx-large')
+    plt.ylabel('Component Basis', size='xx-large')
     plt.xticks(size='xx-large')
     plt.yticks(size='xx-large')
     plt.tight_layout()
-    plt.savefig(fname='logs/tier3_freq.pdf', format='pdf')
+    # plt.savefig(fname='logs/tier2_freq.pdf', format='pdf')
     plt.show()
+
+    # f, l = [], []
+    # for k, v in Counter(tier3_counts).most_common():
+    #     if k:
+    #         f.append(v / len(tier3_counts))
+    #         l.append(k)
+    # d = pd.DataFrame({'Frequency': f, 'Class': l})
+    # plt.figure(figsize=(13, 10))
+    # sn.barplot(data=d, y='Class', x='Frequency', color='cyan')
+    # plt.xlabel('Frequency', size='xx-large')
+    # plt.ylabel('Class', size='xx-large')
+    # plt.xticks(size='xx-large')
+    # plt.yticks(size='xx-large')
+    # plt.tight_layout()
+    # plt.savefig(fname='logs/tier3_freq.pdf', format='pdf')
+    # plt.show()
 
 
 def preprocess(node_feature, edge_feature):
@@ -212,6 +258,33 @@ def preprocess(node_feature, edge_feature):
             nodes = F.one_hot(
                 torch.tensor([vocab['material_name'][n[-1]['material_name']] for n in graph.nodes(data=True)]),
                 len(vocab['material_name']))
+
+        # TODO: add the choice for considering only tier functions (for ablation study) - done
+
+        elif node_feature == 'tier_function':
+            nodes = torch.cat((
+                F.one_hot(
+                    torch.tensor(
+                        [vocab['subfunction_basis'][n[-1]['subfunction_basis']] for n in graph.nodes(data=True)]),
+                    len(vocab['subfunction_basis'])),
+
+                F.one_hot(
+                    torch.tensor(
+                        [vocab['tier_1_function'][n[-1]['tier_1_function']] for n in graph.nodes(data=True)]),
+                    len(vocab['tier_1_function'])),
+
+                F.one_hot(
+                    torch.tensor(
+                        [vocab['tier_2_function'][n[-1]['tier_2_function']] for n in graph.nodes(data=True)]),
+                    len(vocab['tier_2_function'])),
+
+                F.one_hot(
+                    torch.tensor(
+                        [vocab['tier_3_function'][n[-1]['tier_3_function']] for n in graph.nodes(data=True)]),
+                    len(vocab['tier_3_function'])),
+
+            ), -1)
+
         elif node_feature == 'all':
             nodes = torch.cat((
                 F.one_hot(
@@ -223,6 +296,7 @@ def preprocess(node_feature, edge_feature):
                 F.one_hot(
                     torch.tensor([vocab['sys_type_name'][n[-1]['sys_type_name']] for n in graph.nodes(data=True)]),
                     len(vocab['sys_type_name'])),
+
                 # TODO: remove one-hot encoding of materials - done
                 # F.one_hot(
                 #     torch.tensor([vocab['material_name'][n[-1]['material_name']] for n in graph.nodes(data=True)]),
@@ -275,7 +349,7 @@ def preprocess(node_feature, edge_feature):
 
             edge_index = torch.tensor([[e[0], e[1]] for e in graph.edges()]).transpose(1, 0)  # each edge 2 node indexes
 
-        elif edge_feature == 'flow':
+        elif edge_feature == 'flow':  # not including assembly relation
             try:
                 edge_index = \
                     torch.tensor([[e[0], e[1]] for e in graph.edges(data=True) if len(e[-1]) > 0]).transpose(1, 0)
@@ -350,12 +424,21 @@ class DataSet(object):
         self.shuffle()
 
     def shuffle(self):  # shuffle and split the list of graphs
-        train, test = train_test_split(self.graphs, test_size=.3, shuffle=True)
-        train, val = train_test_split(self.graphs, test_size=.1, shuffle=True)
+
+        # train, test = train_test_split(self.graphs, test_size=.3, shuffle=True)
+        # train, val = train_test_split(self.graphs, test_size=.1,
+        #                               shuffle=True)  # TODO: change train_test_split to split on train set
+
+        train, test_val = train_test_split(self.graphs, test_size=0.4, shuffle=True) # Train = 0.6
+        val, test = train_test_split(test_val, test_size=0.75, shuffle=True)
+        # Val = 0.4 * 0.25 = 0.1
+        # Test = 0.4 * 0.75 = 0.3
+
         self.train_loader = DataLoader(train, batch_size=self.batch_size, shuffle=True)
         self.val_loader = DataLoader(val, batch_size=self.batch_size, shuffle=False)
         self.test_loader = DataLoader(test, batch_size=self.batch_size, shuffle=False)
 
 
 if __name__ == '__main__':
-    preprocess("all", "all")
+    # preprocess("all", "all")
+    draw_class()
