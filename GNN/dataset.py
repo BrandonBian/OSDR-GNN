@@ -14,7 +14,8 @@ from sklearn.model_selection import train_test_split
 def get_vocab():
     # Input: a list of NetworkX graphs (from initial step)
 
-    graphs = load_data('../data/autodesk_colab_fullv3_202010291746.csv')
+    # TODO: use new dataset (with "manufac_type" attribute) - done
+    graphs = load_data('../data/autodesk_colab_fullv6_2021_debugged.csv')
 
     # TODO: add material counts - done
     subfunc_counts, tier1_counts, tier2_counts, tier3_counts, material_counts = [], [], [], [], []
@@ -29,9 +30,12 @@ def get_vocab():
         'tier_2_function': set(),
         'tier_3_function': set(),
         'flow': set(),
+
+        'manufac_type': set(), # TODO: added "manufac_type" attribute - done
     }
     for g in graphs:
         for __, attr in g.nodes(data=True):
+
             vocab['component_basis'].add(attr['component_basis'])
             vocab['sys_name'].add(attr['sys_name'])
             vocab['sys_type_name'].add(attr['sys_type_name'])
@@ -41,12 +45,14 @@ def get_vocab():
             vocab['tier_2_function'].add(attr['tier_2_function'])
             vocab['tier_3_function'].add(attr['tier_3_function'])
 
+            vocab['manufac_type'].add(attr['manufac_type']) # TODO: added "manufac_type" attribute - done
+
             subfunc_counts.append(attr['subfunction_basis'])
             tier1_counts.append(attr['tier_1_function'])
             tier2_counts.append(attr['tier_2_function'])
             tier3_counts.append(attr['tier_3_function'])
 
-            sys_name_counts.append(attr['sys_name'])
+            # sys_name_counts.append(attr['sys_name'])
 
             # TODO: update material_counts - done
             material_counts.append(attr['material_name'])
@@ -323,6 +329,13 @@ def preprocess(node_feature, edge_feature):
                         [vocab['tier_3_function'][n[-1]['tier_3_function']] for n in graph.nodes(data=True)]),
                     len(vocab['tier_3_function'])),
 
+                # TODO: add the one-hot encoding of manufac_type - done
+
+                F.one_hot(
+                    torch.tensor(
+                        [vocab['manufac_type'][n[-1]['manufac_type']] for n in graph.nodes(data=True)]),
+                    len(vocab['manufac_type'])),
+
             ), -1)
 
         y = torch.tensor([vocab[f'subfunction_basis'][n[-1][f'subfunction_basis']] for n in graph.nodes(data=True)])
@@ -425,12 +438,13 @@ class DataSet(object):
 
     def shuffle(self):  # shuffle and split the list of graphs
 
-        # train, test = train_test_split(self.graphs, test_size=.3, shuffle=True)
-        # train, val = train_test_split(self.graphs, test_size=.1,
-        #                               shuffle=True)  # TODO: change train_test_split to split on train set
+        train, test = train_test_split(self.graphs, test_size=.3, shuffle=True)
+        train, val = train_test_split(self.graphs, test_size=.1,
+                                      shuffle=True)
 
-        train, test_val = train_test_split(self.graphs, test_size=0.4, shuffle=True) # Train = 0.6
-        val, test = train_test_split(test_val, test_size=0.75, shuffle=True)
+        # TODO: changing the split greatly reduces the test performance - an issue to be solved
+        # train, test_val = train_test_split(self.graphs, test_size=0.4, shuffle=True) # Train = 0.6
+        # val, test = train_test_split(test_val, test_size=0.75, shuffle=True)
         # Val = 0.4 * 0.25 = 0.1
         # Test = 0.4 * 0.75 = 0.3
 
@@ -440,5 +454,5 @@ class DataSet(object):
 
 
 if __name__ == '__main__':
-    # preprocess("all", "all")
-    draw_class()
+    preprocess("all", "all")
+    # draw_class()

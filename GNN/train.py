@@ -16,7 +16,7 @@ from torch.nn import functional as F
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 
 material = True
-ITERATION = 50
+ITERATION = 10
 
 
 class HierarchicalClassifier(object):
