@@ -1,13 +1,18 @@
 # My modification of OSDR-GNN for customized prediction on materials
 
-On line 18, change the global variable to indicate whether to train on materials or on teir functions.
+On line 18, change the global variable to indicate whether to train on materials or on teir functions (original implementation).
 
 ```
 material = True
 ```
 
+## (2021/07/27 Update): Added new dataset (v6) with new attribute "manufac_type"
+1. Debugged the dataset so that the columns match the previous version (v3).
+2. Modified the data processing code to take into account the new attribute (feature).
 
-# ADS-OSU-Assembly-Graph
+
+# Original Information
+## ADS-OSU-Assembly-Graph
 > Ongoing collaboration between Autodesk and Oregon State University concerning the creation of assembly-flow based knowledge graphs to infer function
 
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
