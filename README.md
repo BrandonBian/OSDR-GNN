@@ -1,10 +1,14 @@
 # My modification of OSDR-GNN for customized prediction on materials
 
+## "GNN" directory: training of the GNN on OSDR dataset for prediction on materials.
+
 On line 18, change the global variable to indicate whether to train on materials or on teir functions (original implementation).
 
 ```
 material = True
 ```
+
+## "Assembly" directory: training of the GNN on Assembly CAD dataset for prediction on materials.
 
 ## (2021/07/27 Update): Added new dataset (v6) with new attribute "manufac_type"
 1. Debugged the dataset so that the columns match the previous version (v3).
