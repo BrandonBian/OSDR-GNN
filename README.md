@@ -2,7 +2,7 @@
 
 ## "GNN" directory: training of the GNN on OSDR dataset for prediction on materials.
 
-On line 18, change the global variable to indicate whether to train on materials or on teir functions (original implementation).
+On line 18 of "train.py", change the global variable to indicate whether to train on materials or on teir functions (original implementation).
 
 ```
 material = True
